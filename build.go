@@ -13,8 +13,8 @@ import (
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/extension"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
+	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/renderer/html"
 )
 
@@ -48,7 +48,7 @@ const postTmpl = `<!doctype html>
   <header class="site">
     <a class="title" href="/">Vinicius Cestari</a>
     <nav>
-      <a href="/about.html">about</a>
+      <a href="/about">about</a>
       <a href="https://github.com/ViniciusCestarii" target="_blank" rel="noopener">github</a>
     </nav>
   </header>
@@ -85,7 +85,7 @@ const pageTmpl = `<!doctype html>
   <header class="site">
     <a class="title" href="/">Vinicius Cestari</a>
     <nav>
-      <a href="/about.html">about</a>
+      <a href="/about">about</a>
       <a href="https://github.com/ViniciusCestarii" target="_blank" rel="noopener">github</a>
     </nav>
   </header>
@@ -115,7 +115,7 @@ const indexTmpl = `<!doctype html>
   <header class="site">
     <a class="title" href="/">Vinicius Cestari</a>
     <nav>
-      <a href="/about.html">about</a>
+      <a href="/about">about</a>
       <a href="https://github.com/ViniciusCestarii" target="_blank" rel="noopener">github</a>
     </nav>
   </header>
@@ -127,7 +127,7 @@ const indexTmpl = `<!doctype html>
     <ul class="posts">
 {{- range .}}
       <li>
-        <a href="posts/{{.Slug}}.html">{{.Title}}</a>
+        <a href="posts/{{.Slug}}">{{.Title}}</a>
         <time datetime="{{.Date}}">{{.Date}}</time>
       </li>
 {{- end}}
