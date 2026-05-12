@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
 )
 
@@ -25,6 +27,7 @@ type Post struct {
 	Title string
 	Date  string
 	Body  template.HTML
+	TOC   template.HTML
 }
 
 type Page struct {
@@ -60,6 +63,7 @@ const postTmpl = `<!doctype html>
         <time datetime="{{.Date}}">{{.Date}}</time>
       </header>
 
+{{.TOC}}
 {{.Body}}
       <p><a href="/">← back</a></p>
     </article>
@@ -153,6 +157,7 @@ func main() {
 				highlighting.WithFormatOptions(chromahtml.WithClasses(true)),
 			),
 		),
+		goldmark.WithParserOptions(parser.WithAutoHeadingID()),
 		goldmark.WithRendererOptions(html.WithUnsafe()),
 	)
 
@@ -208,7 +213,63 @@ func loadPost(path string, md goldmark.Markdown) (Post, error) {
 		return Post{}, err
 	}
 	slug := strings.TrimSuffix(filepath.Base(path), ".md")
-	return Post{Slug: slug, Title: meta["title"], Date: meta["date"], Body: body}, nil
+	var toc template.HTML
+	if meta["toc"] == "true" {
+		toc = buildTOC(string(body))
+	}
+	body = addHeadingAnchors(body)
+	return Post{Slug: slug, Title: meta["title"], Date: meta["date"], Body: body, TOC: toc}, nil
+}
+
+func addHeadingAnchors(body template.HTML) template.HTML {
+	return template.HTML(headingRe.ReplaceAllStringFunc(string(body), func(s string) string {
+		m := headingRe.FindStringSubmatch(s)
+		level, id, inner := m[1], m[2], m[3]
+		return fmt.Sprintf(`<h%s id="%s">%s <a class="anchor" href="#%s" aria-label="Link to this section">#</a></h%s>`, level, id, inner, id, level)
+	}))
+}
+
+var headingRe = regexp.MustCompile(`(?s)<h([2-6]) id="([^"]+)">(.*?)</h[2-6]>`)
+var tagRe = regexp.MustCompile(`<[^>]+>`)
+
+func buildTOC(html string) template.HTML {
+	matches := headingRe.FindAllStringSubmatch(html, -1)
+	if len(matches) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(`<details class="toc"><summary>Table of Contents</summary><ul>`)
+	depth := 1
+	prev := int(matches[0][1][0] - '0')
+	for i, m := range matches {
+		level := int(m[1][0] - '0')
+		id := m[2]
+		text := strings.TrimSpace(tagRe.ReplaceAllString(m[3], ""))
+		if i > 0 {
+			switch {
+			case level > prev:
+				for j := 0; j < level-prev; j++ {
+					b.WriteString("<ul>")
+					depth++
+				}
+			case level < prev:
+				for j := 0; j < prev-level; j++ {
+					b.WriteString("</li></ul>")
+					depth--
+				}
+				b.WriteString("</li>")
+			default:
+				b.WriteString("</li>")
+			}
+		}
+		fmt.Fprintf(&b, `<li><a href="#%s">%s</a>`, id, template.HTMLEscapeString(text))
+		prev = level
+	}
+	for j := 0; j < depth; j++ {
+		b.WriteString("</li></ul>")
+	}
+	b.WriteString("</details>")
+	return template.HTML(b.String())
 }
 
 func loadPage(path string, md goldmark.Markdown) (Page, string, error) {

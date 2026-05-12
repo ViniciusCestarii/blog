@@ -1,6 +1,7 @@
 ---
 title: From TX message to mempool
 date: 2026-05-12
+toc: true
 ---
 
 This is a walk through what Bitcoin Core v31.0 does when a peer sends us a `TX` message. I am tracing the path inside [`net_processing.cpp`](https://github.com/bitcoin/bitcoin/blob/v31.0/src/net_processing.cpp#L4473), from the moment we process `TX` message until it either lands in the mempool or gets rejected.

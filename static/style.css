@@ -82,6 +82,31 @@ h2 {
   font-size: 1.25rem;
 }
 
+h2,
+h3,
+h4,
+h5,
+h6 {
+  position: relative;
+}
+
+a.anchor {
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: normal;
+  opacity: 0;
+  margin-left: 0.25rem;
+}
+
+h2:hover a.anchor,
+h3:hover a.anchor,
+h4:hover a.anchor,
+h5:hover a.anchor,
+h6:hover a.anchor,
+a.anchor:focus {
+  opacity: 1;
+}
+
 h3 {
   font-size: 1.05rem;
 }
@@ -239,6 +264,42 @@ aside.side p {
     width: auto;
     margin: 1.5rem 0;
   }
+}
+
+details.toc {
+  font-family: sans-serif;
+  font-size: 0.9rem;
+  background: var(--code-bg);
+  border-left: 3px solid var(--rule);
+  padding: 0.5rem 1rem;
+  margin: 2rem 0;
+}
+
+details.toc summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+details.toc[open] summary {
+  margin-bottom: 0.4rem;
+}
+
+details.toc ul {
+  padding-left: 1.25rem;
+  margin: 0;
+}
+
+details.toc li {
+  padding: 0.15rem 0;
+}
+
+details.toc a {
+  text-decoration: none;
+  color: var(--fg);
+}
+
+details.toc a:hover {
+  color: var(--accent);
 }
 
 footer.site {
