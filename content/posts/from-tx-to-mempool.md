@@ -125,6 +125,8 @@ const auto& [should_validate, package_to_validate] =
 
 `ReceivedTx` does two things: it clears the in-flight slot we were holding for this (peer, txhash) pair in the `TxRequestTracker`, and it tells us what to do next. Three outcomes:
 
+<div class="with-aside">
+
 ```c++
 std::pair<bool, std::optional<PackageToValidate>> 
   TxDownloadManagerImpl::ReceivedTx(
@@ -151,6 +153,13 @@ std::pair<bool, std::optional<PackageToValidate>>
     return {true, std::nullopt};
 }
 ```
+
+<aside class="side">
+  These reject filters are <a href="https://en.wikipedia.org/wiki/Bloom_filter">rolling bloom filters</a>: compact probabilistic sets that can return false positives but never false negatives.
+</aside>
+
+</div>
+
 
 <div class="with-aside">
 
