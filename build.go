@@ -146,6 +146,20 @@ const indexTmpl = `<!doctype html>
 </html>
 `
 
+const sitemapTmpl = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>` + siteURL + `/</loc><priority>1.0</priority></url>
+  <url><loc>` + siteURL + `/about</loc><priority>0.5</priority></url>
+{{- range .}}
+  <url>
+    <loc>` + siteURL + `/posts/{{.Slug}}</loc>
+    <lastmod>{{.Date}}</lastmod>
+    <priority>0.8</priority>
+  </url>
+{{- end}}
+</urlset>
+`
+
 const rssTmpl = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
@@ -225,6 +239,10 @@ func main() {
 	// RSS
 	rssT := texttemplate.Must(texttemplate.New("rss").Parse(rssTmpl))
 	writeTextTemplate(filepath.Join(outDir, "rss.xml"), rssT, posts)
+
+	// Sitemap
+	sitemapT := texttemplate.Must(texttemplate.New("sitemap").Parse(sitemapTmpl))
+	writeTextTemplate(filepath.Join(outDir, "sitemap.xml"), sitemapT, posts)
 
 	// Static assets
 	if err := copyTree("static", outDir); err != nil {
