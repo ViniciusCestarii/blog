@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	texttemplate "text/template"
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/yuin/goldmark"
@@ -21,6 +22,7 @@ import (
 )
 
 const outDir = "build"
+const siteURL = "https://viniciuscestari.dev"
 
 type Post struct {
 	Slug  string
@@ -112,6 +114,7 @@ const indexTmpl = `<!doctype html>
   <title>Vinicius Cestari</title>
   <meta name="description" content="Notes on Bitcoin, systems programming, and things I'm studying.">
   <link rel="stylesheet" href="style.css">
+  <link rel="alternate" type="application/rss+xml" title="Vinicius Cestari" href="/rss.xml">
 </head>
 
 <body>
@@ -141,6 +144,24 @@ const indexTmpl = `<!doctype html>
 </body>
 
 </html>
+`
+
+const rssTmpl = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Vinicius Cestari</title>
+    <link>` + siteURL + `</link>
+    <description>Notes on Bitcoin, systems programming, and things I'm studying.</description>
+{{- range .}}
+    <item>
+      <title>{{.Title}}</title>
+      <link>` + siteURL + `/posts/{{.Slug}}</link>
+      <pubDate>{{.Date}}</pubDate>
+      <guid>` + siteURL + `/posts/{{.Slug}}</guid>
+    </item>
+{{- end}}
+  </channel>
+</rss>
 `
 
 func main() {
@@ -200,6 +221,10 @@ func main() {
 	// Index
 	idxT := template.Must(template.New("index").Parse(indexTmpl))
 	writeTemplate(filepath.Join(outDir, "index.html"), idxT, posts)
+
+	// RSS
+	rssT := texttemplate.Must(texttemplate.New("rss").Parse(rssTmpl))
+	writeTextTemplate(filepath.Join(outDir, "rss.xml"), rssT, posts)
 
 	// Static assets
 	if err := copyTree("static", outDir); err != nil {
@@ -321,6 +346,17 @@ func splitFrontmatter(raw []byte) (map[string]string, []byte, error) {
 		meta[strings.TrimSpace(k)] = strings.TrimSpace(v)
 	}
 	return meta, body, nil
+}
+
+func writeTextTemplate(path string, t *texttemplate.Template, data any) {
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, data); err != nil {
+		log.Fatal(err)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("wrote", path)
 }
 
 func writeTemplate(path string, t *template.Template, data any) {
