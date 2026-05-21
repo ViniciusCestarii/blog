@@ -261,6 +261,7 @@ func loadPost(path string, md goldmark.Markdown) (Post, error) {
 		toc = buildTOC(string(body))
 	}
 	body = addHeadingAnchors(body)
+	body = addExternalLinkAttrs(body)
 	return Post{Slug: slug, Title: meta["title"], Date: meta["date"], Body: body, TOC: toc}, nil
 }
 
@@ -270,6 +271,10 @@ func addHeadingAnchors(body template.HTML) template.HTML {
 		level, id, inner := m[1], m[2], m[3]
 		return fmt.Sprintf(`<h%s id="%s">%s <a class="anchor" href="#%s" aria-label="Link to this section">#</a></h%s>`, level, id, inner, id, level)
 	}))
+}
+
+func addExternalLinkAttrs(body template.HTML) template.HTML {
+	return template.HTML(strings.ReplaceAll(string(body), `<a href="http`, `<a target="_blank" rel="noopener noreferrer" href="http`))
 }
 
 var headingRe = regexp.MustCompile(`(?s)<h([2-6]) id="([^"]+)">(.*?)</h[2-6]>`)
@@ -321,6 +326,7 @@ func loadPage(path string, md goldmark.Markdown) (Page, string, error) {
 		return Page{}, "", err
 	}
 	slug := strings.TrimSuffix(filepath.Base(path), ".md")
+	body = addExternalLinkAttrs(body)
 	return Page{Title: meta["title"], Body: body}, slug, nil
 }
 
