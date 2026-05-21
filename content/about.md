@@ -4,7 +4,7 @@ title: About
 
 # About
 
-I'm Vinicius, a software engineer from Santa Catarina, Brazil.
+I'm Vinicius, a Vinteum fellow and software engineer from Santa Catarina, Brazil.
 
 I work on Bitcoin and systems software. This blog is where I write down what I'm learning while I learn it.
 
