@@ -18,7 +18,7 @@ A `TX` message normally arrives as the response to a `GETDATA` we sent earlier, 
 
 ## Should we even listen to this peer?
 
-Before looking at the transaction itself, the node decides whether it should consider a `TX` message from this peer at all calling `RejectIncomingTxs`. The three cases where Core ignores the `TX` message and marks peer for disconnection (`pfrom.fDisconnect = true;`):
+Before looking at the transaction itself, the node decides whether it should consider a `TX` message from this peer at all calling `RejectIncomingTxs`. The three cases where Core ignores the `TX` message and marks a peer for disconnection (`pfrom.fDisconnect = true;`):
 
 ```cpp
 bool PeerManagerImpl::RejectIncomingTxs(const CNode& peer) const
@@ -224,7 +224,7 @@ If the package validation is attempted, two outcomes:
 
 ## The main validation path
 
-This is the main path: a transaction we have not seen, ready for verification. [`m_chainman.ProcessTransaction`](https://github.com/bitcoin/bitcoin/blob/v31.0/src/validation.cpp#L4480) does the heavy work here: it runs the full transaction validation pipeline and, if everything checks out, adds the transaction to the mempool. I'm not going to walk through that phase in detail because it would be a blog post of its own.
+When we reach this point, the transaction is new to us and ready for validation. [`m_chainman.ProcessTransaction`](https://github.com/bitcoin/bitcoin/blob/v31.0/src/validation.cpp#L4480) runs the full validation pipeline and, if everything checks out, adds it to the mempool.
 
 ```cpp
 const MempoolAcceptResult result = 
