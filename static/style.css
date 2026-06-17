@@ -9,7 +9,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #16161a;
+    --bg: #111111;
     --fg: #e8e6e3;
     --muted: #8a8a8a;
     --accent: #ff8a4c;
@@ -23,16 +23,16 @@
 }
 
 html {
-  font-size: 1rem;
   scrollbar-gutter: stable;
 }
 
 body {
   font-family: Charter, "Iowan Old Style", Palatino, Georgia, serif;
+  font-size: 1.2rem;
   line-height: 1.6;
   color: var(--fg);
   background: var(--bg);
-  max-width: 38rem;
+  max-width: 40rem;
   min-height: 100vh;
   margin: 0 auto;
   padding: 2.5rem 1.25rem 4rem;
@@ -74,12 +74,12 @@ h3 {
 }
 
 h1 {
-  font-size: 1.75rem;
+  font-size: 2rem;
   margin-top: 0;
 }
 
 h2 {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
 }
 
 h2,
@@ -108,7 +108,7 @@ a.anchor:focus {
 }
 
 h3 {
-  font-size: 1.05rem;
+  font-size: 1.2rem;
 }
 
 a {
@@ -178,6 +178,7 @@ code {
   padding: 0.1em 0.35em;
   border-radius: 3px;
   overflow-wrap: anywhere;
+  font-size: 0.8em;
 }
 
 pre {
@@ -243,7 +244,7 @@ aside.side {
   border-left: 2px solid var(--rule);
   color: var(--muted);
   font-family: sans-serif;
-  font-size: 0.85rem;
+  font-size: 1rem;
   line-height: 1.5;
 }
 
@@ -268,7 +269,7 @@ aside.side p {
 
 details.toc {
   font-family: sans-serif;
-  font-size: 0.9rem;
+  font-size: 1.1rem;
   background: var(--code-bg);
   border-left: 3px solid var(--rule);
   padding: 0.5rem 1rem;
@@ -307,6 +308,6 @@ footer.site {
   padding-top: 1rem;
   border-top: 1px solid var(--rule);
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-family: sans-serif;
 }
