@@ -25,11 +25,12 @@ const outDir = "build"
 const siteURL = "https://viniciuscestari.dev"
 
 type Post struct {
-	Slug  string
-	Title string
-	Date  string
-	Body  template.HTML
-	TOC   template.HTML
+	Slug     string
+	Title    string
+	Date     string
+	Body     template.HTML
+	TOC      template.HTML
+	Released bool
 }
 
 type Page struct {
@@ -207,6 +208,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("%s: %v", f, err)
 		}
+		if !p.Released {
+			fmt.Println("skipped (unreleased)", f)
+			continue
+		}
 		posts = append(posts, p)
 	}
 	sort.Slice(posts, func(i, j int) bool { return posts[i].Date > posts[j].Date })
@@ -262,7 +267,23 @@ func loadPost(path string, md goldmark.Markdown) (Post, error) {
 	}
 	body = addHeadingAnchors(body)
 	body = addExternalLinkAttrs(body)
-	return Post{Slug: slug, Title: meta["title"], Date: meta["date"], Body: body, TOC: toc}, nil
+	released, err := parseBool(meta["released"], true)
+	if err != nil {
+		return Post{}, fmt.Errorf("released: %w", err)
+	}
+	return Post{Slug: slug, Title: meta["title"], Date: meta["date"], Body: body, TOC: toc, Released: released}, nil
+}
+
+func parseBool(v string, def bool) (bool, error) {
+	switch v {
+	case "":
+		return def, nil
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	}
+	return false, fmt.Errorf("want true or false, got %q", v)
 }
 
 func addHeadingAnchors(body template.HTML) template.HTML {
