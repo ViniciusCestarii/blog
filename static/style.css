@@ -1,17 +1,21 @@
 :root {
-  --bg: #fdfdfc;
+  --font-text: Inter, "Adwaita Sans", Cantarell, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "DejaVu Sans Mono",
+    ui-monospace, monospace;
+  --bg: #f8f7f5;
   --fg: #1a1a1a;
-  --muted: #6b6b6b;
+  --muted: #595856;
   --accent: #b8410f;
-  --rule: #e5e5e2;
-  --code-bg: #f4f3f0;
+  --rule: #e2e1dd;
+  --code-bg: #edece8;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #111111;
-    --fg: #e8e6e3;
-    --muted: #8a8a8a;
+    --fg: #d8d6d3;
+    --muted: #afafaf;
     --accent: #ff8a4c;
     --rule: #2a2a2e;
     --code-bg: #1f1f23;
@@ -27,12 +31,14 @@ html {
 }
 
 body {
-  font-family: Charter, "Iowan Old Style", Palatino, Georgia, serif;
-  font-size: 1.2rem;
-  line-height: 1.6;
+  font-family: var(--font-text);
+  font-size: 1.03125rem;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   color: var(--fg);
   background: var(--bg);
-  max-width: 40rem;
+  max-width: 41rem;
   min-height: 100vh;
   margin: 0 auto;
   padding: 2.5rem 1.25rem 4rem;
@@ -68,8 +74,8 @@ header.site nav a:hover {
 h1,
 h2,
 h3 {
-  font-family: sans-serif;
   line-height: 1.25;
+  letter-spacing: -0.015em;
   margin-top: 2rem;
 }
 
@@ -111,6 +117,17 @@ h3 {
   font-size: 1.2rem;
 }
 
+h1 code,
+h2 code,
+h3 code,
+h4 code,
+h5 code,
+h6 code {
+  font-size: 0.9em;
+  padding: 0 0.2em;
+  letter-spacing: 0;
+}
+
 a {
   color: var(--accent);
 }
@@ -127,7 +144,7 @@ time,
 .meta {
   color: var(--muted);
   font-size: 0.9rem;
-  font-family: sans-serif;
+  font-family: var(--font-text);
 }
 
 ul.posts {
@@ -169,8 +186,8 @@ code,
 pre,
 kbd,
 samp {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.9em;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
 }
 
 code {
@@ -178,7 +195,6 @@ code {
   padding: 0.1em 0.35em;
   border-radius: 3px;
   overflow-wrap: anywhere;
-  font-size: 0.8em;
 }
 
 pre {
@@ -226,7 +242,7 @@ td {
 }
 
 th {
-  font-family: sans-serif;
+  font-family: var(--font-text);
   font-weight: 600;
 }
 
@@ -243,8 +259,8 @@ aside.side {
   padding-left: 1rem;
   border-left: 2px solid var(--rule);
   color: var(--muted);
-  font-family: sans-serif;
-  font-size: 1rem;
+  font-family: var(--font-text);
+  font-size: 0.9375rem;
   line-height: 1.5;
 }
 
@@ -268,8 +284,8 @@ aside.side p {
 }
 
 details.toc {
-  font-family: sans-serif;
-  font-size: 1.1rem;
+  font-family: var(--font-text);
+  font-size: 1rem;
   background: var(--code-bg);
   border-left: 3px solid var(--rule);
   padding: 0.5rem 1rem;
@@ -308,6 +324,6 @@ footer.site {
   padding-top: 1rem;
   border-top: 1px solid var(--rule);
   color: var(--muted);
-  font-size: 1rem;
-  font-family: sans-serif;
+  font-size: 0.9375rem;
+  font-family: var(--font-text);
 }
