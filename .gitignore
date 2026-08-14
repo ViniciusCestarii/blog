@@ -1,3 +1,4 @@
 build/
 # ignore my draft posts
-draft*.md 
+draft*.md
+ignore/

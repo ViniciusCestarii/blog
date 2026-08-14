@@ -4,6 +4,15 @@ date: 2026-06-17
 toc: true
 ---
 
+<nav class="series">
+  <p>Prologue to a three-part series on Bitcoin Core IPC.</p>
+  <ol>
+    <li><a href="/posts/inside-bitcoin-core-ipc">Inside Bitcoin Core IPC</a></li>
+    <li><a href="/posts/bitcoin-core-ipc-event-loop">Bitcoin Core IPC Event Loop</a></li>
+    <li><a href="/posts/bitcoin-core-ipc-on-the-wire">Bitcoin Core IPC on the Wire</a></li>
+  </ol>
+</nav>
+
 For the last few months I've been studying and contributing to Bitcoin Core's inter-process communication (IPC) layer. I've added test coverage, type mapping support, and logging to the library behind it, and reviewed other contributors' PRs along the way. This post is a breakdown of what the IPC layer is and why it matters.
 
 ## The problem with the current architecture

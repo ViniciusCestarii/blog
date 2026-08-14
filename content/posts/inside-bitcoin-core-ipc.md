@@ -2,30 +2,48 @@
 title: Inside Bitcoin Core IPC
 date: 2026-07-23
 toc: true
-released: false
 ---
 
-In [my last post](https://viniciuscestari.dev/posts/introduction-to-bitcoin-core-ipc) I have made an introduction to Bitcoin Core IPC mechanism and why it is important. In this one I want to dive deeper and show this mechanism working in practice between `bitcoin-node` and `bitcoin-wallet` binaries.
+<nav class="series">
+  <p>Part 1 of 3 on Bitcoin Core IPC. Background: <a href="/posts/introduction-to-bitcoin-core-ipc">Introduction to Bitcoin Core IPC</a>.</p>
+  <ol>
+    <li aria-current="page">Inside Bitcoin Core IPC</li>
+    <li><a href="/posts/bitcoin-core-ipc-event-loop">Bitcoin Core IPC Event Loop</a></li>
+    <li><a href="/posts/bitcoin-core-ipc-on-the-wire">Bitcoin Core IPC on the Wire</a></li>
+  </ol>
+</nav>
+
+In [my last post](https://viniciuscestari.dev/posts/introduction-to-bitcoin-core-ipc) I made an introduction to the Bitcoin Core IPC mechanism and why it is important. In this one I want to dive deeper and show this mechanism working in practice between `bitcoin-node` and `bitcoin-wallet` binaries.
 
 ## Setting Up
 
-We will need to use the changes on the [PR 10102 Multiprocess bitcoin (this is the oldest open PR in Bitcoin Core!)](https://github.com/bitcoin/bitcoin/pull/10102) to try the split of bitcoin-node and bitcoin-wallet.
+<div class="with-aside">
+
+We will need to use the changes on the [PR #10102](https://github.com/bitcoin/bitcoin/pull/10102) named Multiprocess bitcoin to try the split of `bitcoin-node` and `bitcoin-wallet`.
+
+<aside class="side">
+  <p>Fun fact: <a href="https://github.com/bitcoin/bitcoin/pull/10102">PR #10102</a> is the oldest open PR in Bitcoin Core!</p>
+</aside>
+
+</div>
+
+Since this PR is still open and being developed, the code here may change, but the core idea and flow should stay the same. The links here and my review are based on the HEAD of [PR #10102](<https://github.com/bitcoin/bitcoin/pull/10102>) at the time of writing ([b314fb2](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337)).
 
 ### Building Bitcoin Core IPC
 
 <div class="with-aside">
 
-Building it is pretty straithforward because the default build already builds multiprocess build.
+Building it is pretty straightforward because the default build already includes the multiprocess binaries.
 
 ```bash
 cmake -B build
 cmake --build build -j $(nproc)
 ```
 
-This may take a while but after running this you should see some binaries in folder `./build/bin/` including `bitcoin`, `bitcoin-node` and `bitcoin-wallet`.
+This may take a while but after running this you should see some binaries in the folder `./build/bin/`, including `bitcoin`, `bitcoin-node` and `bitcoin-wallet`.
 
 <aside class="side">
-  <p>Sorry, I will only use Unix commands here this post will be Linux heavy. <a href="https://github.com/bitcoin/bitcoin/pull/32387">Windows support for this build is still in development. </a></p>
+  <p><a href="https://github.com/bitcoin/bitcoin/pull/32387">Windows support</a> for this build is still in development.</p>
 </aside>
 
 </div>
@@ -40,241 +58,177 @@ Using the `bitcoin` CLI we can start `bitcoin-node`:
 build/bin/bitcoin -m node -debug=ipc -regtest
 ```
 
-Here we use `-m` flag to state that we want to run the multiprocess `bitcoin-node` and not `bitcoind` and `-debug=ipc` to print IPC logs. 
+Here we use the `-m` flag to state that we want to run the multiprocess `bitcoin-node` and not `bitcoind`, `-debug=ipc` to print IPC logs, and `-regtest` to run on the [regtest network](https://developer.bitcoin.org/examples/testing.html#regtest-mode). 
 
 <aside class="side">
-  <p><code>bitcoin</code> is just a CLI helper to run other commands. To see more, check <a href="https://github.com/bitcoin/bitcoin/blob/master/src/bitcoin.cpp">src/bitcoin.cpp</a>.</p>
+  <p><code>bitcoin</code> is just a CLI helper to run other commands. To see more, check <a href="https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/bitcoin.cpp">src/bitcoin.cpp</a>.</p>
 </aside>
 
 </div>
 
-Ok now with `bitcoin-node` running let's run `bitcoin-wallet`, but wait let's first run this comamnd to see our `bitcoin-node` running:
 
-```bash
-pstree | grep bitcoin
-```
+Ok, now with `bitcoin-node` running, let's run `bitcoin-wallet`. But wait, let's first run this command to see our `bitcoin-node` running:
 
-should be a aside: I will be using ps commands a lot to inspect process in this blog post
+<div class="with-aside">
 
-result:
 ```bash
 vinicius@archlinux ~> pstree | grep bitcoin
         |         |-alacritty-+-fish---bitcoin-node-+-bitcoin-wallet---2*[{bitcoin-wallet}]
         |         |           |                     `-48*[{bitcoin-node}]
 ```
-The numbers are just the number of OS threads of that process.
 
+<aside class="side">
+  <p>The <code>*</code> numbers are just the number of OS threads of that process.</p>
+</aside>
 
-What does this mean? Well this means that in my case I ran the terminal emulator [Alacritty](https://alacritty.org/) which runs the [fish shell](https://fishshell.com/) I ran `build/bin/bitcoin -m node -debug=ipc -regtest` and `bitcoin` then called `execvp` with `./build/bin/bitcoin-node` replacing the `bitcoin` process image with a `bitcoin-node` process image (that's why we don't see a `bitcoin` binary on the comamnd output) and also the interesting part: `bitcoin-node` spawned `bitcoin-wallet`, this preserves monolith-equivalent UX (bitcoin -m node "just has a wallet" like bitcoind does) without you manually starting and wiring up bitcoin-wallet yourself.
+</div>
 
-Also running to see the pid and command of current process that mention "bitcoin":
-```bash
-ps a -o pid,cmd | grep bitcoin
-```
+What does this mean? Well, in my case I ran the terminal emulator [Alacritty](https://alacritty.org/), which runs the [fish shell](https://fishshell.com/), and there I ran `build/bin/bitcoin -m node -debug=ipc -regtest`. Then [`bitcoin` called `execvp` with `./build/bin/bitcoin-node`](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/bitcoin.cpp#L203), replacing the `bitcoin` process image with a `bitcoin-node` process image (that's why we don't see a `bitcoin` binary in the command output). 
 
-result:
+Now the interesting part: `bitcoin-node` spawned `bitcoin-wallet`. This preserves monolith-equivalent UX (`bitcoin-node` "just runs a wallet" like `bitcoind` does) without you manually starting and wiring up `bitcoin-wallet` yourself.
+
+We can also look at the PID (process id) and full command of each process:
+
 ```bash
 vinicius@archlinux ~> ps a -o pid,cmd | grep bitcoin
-  63353 /home/vinicius/Code/my/bitcoin/build/bin/bitcoin-node -debug=ipc -regtest
-  63355 /home/vinicius/Code/my/bitcoin/build/bin/bitcoin-wallet -ipcfd 8
+  71906 /home/vinicius/Code/my/bitcoin/build/bin/bitcoin-node -debug=ipc -regtest
+  71908 /home/vinicius/Code/my/bitcoin/build/bin/bitcoin-wallet -ipcfd 8
 ```
 
-Here we see the `bitcoin-node` args are what we passed to `bitcoin` and also `bitcoin-wallet` with the flag `-ipcfd 8`. This is the [file descriptor](https://en.wikipedia.org/wiki/File_descriptor) of one end of a Unix Domain socket that the parent `bitcoin-node` sets up before creating the child and then pass one end for the it via this arg. 
+`bitcoin-node` got the args we passed to `bitcoin`, as expected. But `bitcoin-wallet` got an arg we never typed: `-ipcfd 8`.
 
-When `bitcoin-wallet` starts it checks for `-ipcfd` and it is set it branch out to an IPC server and just answers and waits for `bitcoin-nodes` (to understand more follow the function `interfaces::MakeWalletInit` in [src/bitcoin-wallet.cpp](https://github.com/ryanofsky/bitcoin/blob/pr/ipc/src/bitcoin-wallet.cpp#L100) ). 
+That 8 is a [file descriptor](https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap03.html#tag_03_141). Before spawning the child, `bitcoin-node` creates a [Unix Domain socket](https://man7.org/linux/man-pages/man7/unix.7.html) and keeps one end for itself. The other end stays open in the child (in this case fd 8), and `-ipcfd` is how the child gets told which fd to use to talk to the parent.
+
+`bitcoin-wallet` was originally an offline wallet tool: a CLI you run to create a wallet or dump its contents. That is still what it does by default. But when it starts it also checks for `-ipcfd`, and if the flag is set it never runs a CLI command at all: [it turns into an IPC server](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/interfaces.cpp#L80) that waits on that fd for `bitcoin-node` to call it.
+
+It might sound weird at first that the same binary behaves completely differently depending on whether it got `-ipcfd`. The [reasoning](https://github.com/bitcoin/bitcoin/issues/31827#issuecomment-2648684591) is that you are not supposed to call `bitcoin-wallet` yourself: you call the `bitcoin` wrapper, and it decides which binary to run and how. Which binary ends up serving your command is an implementation detail.
+
+## What to Expect on the Wire
+
+Before opening a single trace file, it is worth knowing what we are looking for. Otherwise the bytes are just bytes.
+
+What we are looking for is one call: `Init.makeWalletLoader`. A wallet loader is the object that owns wallet files, the thing that creates them, loads them, lists them, and hands back a `Wallet` for each one. It is what `bitcoin-node` has to obtain before it can do anything with a wallet at all.
+
+<div class="with-aside">
+
+I picked it because it is the first message on this socket that a Bitcoin Core developer would recognize, which also makes it the right place to stop. Everything before it is capnp and libmultiprocess getting the connection into a usable state, machinery that does not exist in `bitcoind` and does not correspond to anything in the node's own logic, and everything after it is a connection that already works. `makeWalletLoader` is the one point where the trace shows something that is not setup: in `bitcoind` it is a plain C++ call on a pointer, one line, no socket involved, and here that same line is a message we can follow from the C++ that made it down to the bytes.
+
+<aside class="side">
+  <p>libmultiprocess is the library that generates the C++ proxy classes code at build time, and drives the connection the processes talk over at run time. I explain it <a href="/posts/introduction-to-bitcoin-core-ipc#how-does-bitcoin-core-ipc-work">here</a></p>
+</aside>
+
+</div>
 
 
-## Tracing IPC Communication
+### capnp schema
 
+Everything the two processes say to each other is described, ahead of time, by a set of schema files that live in [`src/ipc/capnp/`](https://github.com/bitcoin/bitcoin/tree/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/capnp). They are written in the [Cap'n Proto schema language](https://capnproto.org/language.html), and each binary is compiled against them, so there is no negotiation at runtime: the vocabulary is fixed at build time.
 
+The most important interface is [`Init`](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/capnp/init.capnp):
 
-First let's stop `bitcoin-node` (this will stop `bitcoin-wallet` since `bitcoin-wallet` will notice that the unix domain socket is dead and [will exit normally](https://github.com/ryanofsky/bitcoin/blob/pr/ipc/src/bitcoin-wallet.cpp#L102)) so we can start tracing from the beginning:
+```capnp
+@0xf2c5cfa319406aa6;
 
-```bash
-kill $(pidof bitcoin-node)
+interface Init $Proxy.wrap("interfaces::Init") {
+    construct @0 (threadMap: Proxy.ThreadMap) -> (threadMap :Proxy.ThreadMap);
+    makeEcho @1 (context :Proxy.Context) -> (result :Echo.Echo);
+    makeMining @3 (context :Proxy.Context) -> (result :Mining.Mining);
+    makeRpc @4 (context :Proxy.Context) -> (result :Rpc.Rpc);
+    makeChain @5 (context :Proxy.Context) -> (result :Chain.Chain);
+    makeNode @6 (context :Proxy.Context) -> (result :Node.Node);
+    makeWalletLoader @7 (context :Proxy.Context, globalArgs :Common.GlobalArgs, chain :Chain.Chain) -> (result :Wallet.WalletLoader);
+
+    # DEPRECATED: no longer supported; server returns an error.
+    makeMiningOld2 @2 () -> ();
+}
 ```
 
-Now that `bitcoin-node` and `bitcoin-wallet` are down let's run again and trace it with `strace`!
+<div class="with-aside">
 
-```bash
-mkdir trace
-strace -ff -o trace/tracing.log -tt -T -yy -s 999999 build/bin/bitcoin -m node -debug=ipc -regtest
+An `interface` is capnp's word for an object you can call methods on remotely. It is never copied on the wire, it stays where it is and you get the ability to call it.
+
+<aside class="side">
+  <p>Compare with <a href="https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/capnp/common.capnp">common.capnp</a>, which is almost all <code>struct</code>: those are the things that really do travel as bytes.</p>
+</aside>
+
+</div>
+
+Now look at the numbers. Every method carries an ordinal, `@0` through `@7`, and those ordinals are what actually go on the wire. Method names are for us, not for the protocol. Same for `@0xf2c5cfa319406aa6` at the top of the file: capnp derives a 64 bit id for every type from the file id and the type name, and *that* is how the receiving side knows which interface you meant. So the pair we should expect to see travelling is an interface id plus a method number, not the string `makeWalletLoader`.
+
+You can also see why `makeMiningOld2 @2` is still sitting there, deprecated and out of order. Deleting it would let `@2` be reused by a future method, and then an old peer calling `@2` would silently invoke something else. [The schema language rules](https://capnproto.org/language.html#evolving-your-protocol) are explicit about this: you may add, you may rename, you must never renumber.
+
+The `$Proxy.wrap("interfaces::Init")` bit is not for capnp, it is an [annotation](https://capnproto.org/language.html#annotations) that libmultiprocess defines in [`mp/proxy.capnp`](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/libmultiprocess/include/mp/proxy.capnp) and its code generator tool, `mpgen`, reads it to generate code. It says: this capnp interface mirrors the C++ class `interfaces::Init`, so generate a `ProxyClient<Init>` that inherits from it and turns each method call into a request, and a `ProxyServer<Init>` that unpacks requests and calls the real object.And the `make*` methods really do mirror it one for one, [`src/interfaces/init.h`](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/interfaces/init.h#L31):
+
+```c++
+class Init
+{
+public:
+    virtual ~Init() = default;
+    virtual std::unique_ptr<Node> makeNode() { return nullptr; }
+    virtual std::unique_ptr<Chain> makeChain() { return nullptr; }
+    virtual std::unique_ptr<Mining> makeMining() { return nullptr; }
+    virtual std::unique_ptr<WalletLoader> makeWalletLoader(Chain& chain) { return nullptr; }
+    // ...
+};
 ```
 
-The flags of `strace` set here are:
+Because the two match method for method, the code that uses `interfaces::Init` does not have to know which one it got. It holds a pointer to the abstract class and calls virtual methods on it. If the implementation behind that pointer is the local one, the call is a normal function call. If it is the generated `ProxyClient<Init>`, the exact same call turns into a request on a socket. Nothing at the call site says "this is IPC", and nothing there had to be rewritten to make it IPC.
 
-| Flag | Meaning |
-|---|---|
-| `-ff` | Follow forks, writing each traced process's output to a separate file |
-| `-o trace/tracing.log` | Send trace output to file, with `-ff` output to file appended by TID (thread id) |
-| `-tt` | Print absolute timestamp with microsecond precision |
-| `-T` | Print time spent in each syscall |
-| `-yy` | Print all available info for file descriptor arguments |
-| `-s 999999` | Limit length of printed strings (raised high to avoid truncation) |
+That is why `WalletInit::Construct()`, the startup function that asks for a wallet loader in the first place, looks like it is just calling ordinary C++ methods:
 
-Fun fact: tracing bitcoin core like this can take a huge amount of storage and make the largest files I have ever seen.
-
-Now if we run `ls trace` to see what files there are in our folder trace we will see:
-
-```bash
-vinicius@archlinux ~> ls trace
-tracing.log.21307  tracing.log.21432  tracing.log.21438  tracing.log.21444  tracing.log.21450  tracing.log.21456  tracing.log.21462  tracing.log.21468  tracing.log.21474
-tracing.log.21308  tracing.log.21433  tracing.log.21439  tracing.log.21445  tracing.log.21451  tracing.log.21457  tracing.log.21463  tracing.log.21469  tracing.log.21475
-tracing.log.21309  tracing.log.21434  tracing.log.21440  tracing.log.21446  tracing.log.21452  tracing.log.21458  tracing.log.21464  tracing.log.21470  tracing.log.21476
-tracing.log.21310  tracing.log.21435  tracing.log.21441  tracing.log.21447  tracing.log.21453  tracing.log.21459  tracing.log.21465  tracing.log.21471  tracing.log.21477
-tracing.log.21428  tracing.log.21436  tracing.log.21442  tracing.log.21448  tracing.log.21454  tracing.log.21460  tracing.log.21466  tracing.log.21472  tracing.log.21478
-tracing.log.21431  tracing.log.21437  tracing.log.21443  tracing.log.21449  tracing.log.21455  tracing.log.21461  tracing.log.21467  tracing.log.21473  tracing.log.21479
+```c++
+auto wallet_loader = node.init->makeWalletLoader(*node.chain);
 ```
 
-Ok this is a lot and these are the `bitcoin-node` and `bitcoin-wallet` tracing combined and only differentiated by TID. So now we need to figure out what what thread belong to who.
+It is an ordinary C++ method call. `node.init` is just a pointer to an abstract class, and in `bitcoind` that is exactly all it is. In `bitcoin-node` the object behind that pointer is a generated proxy, and this one line becomes everything the rest of this series is about.
 
-This is easy we can run the following to get all the current `bitcoin-node` threads TID and respectvive command name:
+### Capabilities
 
-```bash
-ps -T -p $(pidof bitcoin-node) -o tid,comm
+Look at what `Init.makeWalletLoader` returns: `result :Wallet.WalletLoader`. `WalletLoader` is an `interface`, so the reply cannot possibly contain a wallet loader. Wallet loaders are made of open database handles and file locks and threads, none of which fit in a socket. What comes back instead is a *capability*: a reference to a live object over there, plus the right to call its methods.
+
+A capnp connection has room for exactly one starting point, a [bootstrap capability](https://github.com/capnproto/capnproto/blob/v1.2.0/c++/src/capnp/rpc.capnp#L278), and every other capability has to be reached from it. libmultiprocess picks the bootstrap when the connection is made, and for Bitcoin Core it is always `Init`, [in `ConnectStream`](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/libmultiprocess/include/mp/proxy-io.h#L839):
+
+```c++
+init_client = connection->m_rpc_system->bootstrap(ServerVatId().vat_id).castAs<InitInterface>();
 ```
 
-```bash
-vinicius@archlinux ~> ps -T -p $(pidof bitcoin-node) -o tid,comm
-    TID COMMAND
-  21307 bitcoin-node
-  21308 b-scheduler
-  21310 b-capnp-loop
-  21431 b-http.00
-  21432 b-http.01
-  21433 b-http.02
-  21434 b-http.03
-  21435 b-http.04
-  21436 b-http.05
-  21437 b-http.06
-  21438 b-http.07
-  21439 b-http.08
-  21440 b-http.09
-  21441 b-http.10
-  21442 b-http.11
-  21443 b-http.12
-  21444 b-http.13
-  21445 b-http.14
-  21446 b-http.15
-  21447 b-http
-  21448 b-scriptch.00
-  21449 b-scriptch.01
-  21450 b-scriptch.02
-  21451 b-scriptch.03
-  21452 b-scriptch.04
-  21453 b-scriptch.05
-  21454 b-scriptch.06
-  21455 b-scriptch.07
-  21456 b-scriptch.08
-  21457 b-scriptch.09
-  21458 b-scriptch.10
-  21459 b-scriptch.11
-  21460 b-scriptch.12
-  21461 b-scriptch.13
-  21462 b-scriptch.14
-  21463 b-prevout.00
-  21464 b-prevout.01
-  21465 b-prevout.02
-  21466 b-prevout.03
-  21467 b-prevout.04
-  21468 b-prevout.05
-  21469 b-prevout.06
-  21470 b-prevout.07
-  21472 b-mapport
-  21473 b-torcontrol
-  21474 b-net
-  21476 b-addcon
-  21477 b-opencon
-  21478 b-msghand
+That explains the shape of `Init`. It is nothing but `make*` methods, because it is like a root of a graph: `Init` gets you a `WalletLoader`, `WalletLoader.createWallet` gets you a [`Wallet`](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/capnp/wallet.capnp#L18), and only then can you call `getBalances`, etc. Each interface is a door to the next one.
+
+```capnp
+interface WalletLoader extends(Chain.ChainClient) $Proxy.wrap("interfaces::WalletLoader") {
+    createWallet @0 (context :Proxy.Context, name :Text, passphrase :Text, flags :UInt64) -> (warning :List(Common.BilingualStr), result :Common.Result(Wallet));
+    loadWallet @1 (context :Proxy.Context, name :Text) -> (warning :List(Common.BilingualStr), result :Common.Result(Wallet));
+    // ...
+    handleLoadWallet @8 (context :Proxy.Context, callback :LoadWalletCallback) -> (result :Handler.Handler);
+}
 ```
 
-There are two interesting things here, one is noticed that every thread besides `bitcoin-node` starts with `b-` this is a convention in Bitcoin Core where every thread created is preffixed with `b-`, so why `bitcoin-node` doesn't start with `b-`? It doesn't because the `bitcoin-node` thread is the main thread, it was first thread created ( lowest TID) and was created with the process and the main thread always take the program name.
+Capabilities go the other way too. `handleLoadWallet` *takes* a `LoadWalletCallback`, which is an interface, so `bitcoin-node` is handing `bitcoin-wallet` a reference to an object of its own, and `bitcoin-wallet` will call back into `bitcoin-node` through it. This is why there is no client and no server here. Both processes export capabilities, both call.
 
-Let's find out threads TID of `bitcoin-wallet` too:
+Two more conventions generate traffic we would otherwise have to explain twice:
 
-```bash
-vinicius@archlinux ~> ps -T -p $(pidof bitcoin-wallet) -o tid,comm
-    TID COMMAND
-  21309 bitcoin-wallet
-  21428 bitcoin-wallet
-  21479 b-schedqueue
-```
+- Almost every method takes `context :Proxy.Context` as its first parameter. That is not a Bitcoin Core parameter, it is [libmultiprocess bookkeeping](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/libmultiprocess/include/mp/proxy.capnp#L60), and it holds two `Thread` capabilities pointing opposite ways: `thread`, the server thread this call should run on, and `callbackThread`, the client thread the server should route callbacks back to, which is how a recursive lock still re-enters across a process boundary. The two are not obtained the same way. `callbackThread` points at an object in the caller's own process, so the caller just creates it and hands out a capability to it. `thread` points at an object in the other process, so it has to be asked for with a `ThreadMap.makeThread` call before it can be named. That happens [once per thread per connection](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/libmultiprocess/include/mp/type-context.h#L24), not once per call, but it does mean the first call from any thread drags an extra one along with it.
+- `construct @0` on `Init` and `destroy @0` on most other interfaces are lifecycle hooks. `construct` runs [automatically](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/libmultiprocess/include/mp/proxy-io.h#L590) when the proxy client is built and exists [only to swap `ThreadMap` capabilities](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/libmultiprocess/include/mp/proxy.h#L104) between the two sides. `destroy` exists so that object lifetimes stay tied together across the process boundary: when a proxy goes out of scope on one side, the real object on the other side is gone before the destructor returns. The proxy's destructor sends a `destroy` call over the socket and blocks until the reply comes back, [waiting for the object to actually be deleted server side](https://github.com/bitcoin/bitcoin/blob/b314fb2cff7ceb68882f9e53294f86dab6940337/src/ipc/libmultiprocess/include/mp/proxy-io.h#L558), so `delete` is a round trip like any other method.
 
-Ok so we found out all threads!
+### The shape of the traffic
 
-aside to add lather: there are two `bitcoin-wallet` thread names because when a process creates a bew thread and doens't rename it creates with the same name as the thread that created it.
+That is enough to predict every message that crosses the socket before `bitcoin-node` holds a wallet loader, without looking at a single byte:
 
---- later in this post:
+1. **`bitcoin-node` asks for the bootstrap capability.** A capnp connection starts with exactly one object handed over, and everything else is reached through it. Here that object is `Init`.
+2. **It sets up the plumbing on that capability.** `Init.construct` runs to swap `ThreadMap` capabilities, and then `ThreadMap.makeThread` runs to create the `bitcoin-wallet` side thread that will serve the call, because `Init.makeWalletLoader` takes a `context :Proxy.Context`, and `context.thread` names a thread in `bitcoin-wallet`, which has to exist before it can be named. Its sibling `context.callbackThread` costs no message at all, since that thread is `bitcoin-node`'s own, and handing out a capability to an object you already have is free.
+3. **Then the call we want to see: `Init.makeWalletLoader`**, naming the `Init` interface id and method `7`. `globalArgs` travels as copied bytes, since it is a struct. `context.thread`, `context.callbackThread` and `chain` travel as capabilities, since they are interfaces. `chain` is the one worth noticing: it is `bitcoin-node`'s own `Chain` object, so this is also the call where `bitcoin-wallet` ends up holding a capability that points back into `bitcoin-node`.
+4. **And a return that contains only a wallet loader capability.** Not an object that is made of file locks and threads copied into the wire, but only a capability pointing at one.
 
-Let's give strace something to chew on.
+Cap'n Proto is two things: a serialization format, and an RPC protocol built on top of it. Everything above is the serialization format carrying Bitcoin Core's own schemas. The envelope around all of it is the RPC protocol, and it is described by a capnp schema too, [`rpc.capnp`](https://github.com/capnproto/capnproto/blob/v1.2.0/c%2B%2B/src/capnp/rpc.capnp): a `Call` carrying a `questionId`, a `target`, an `interfaceId`, a `methodId` and `params`, answered by a `Return` carrying the matching `answerId`.
 
+<div class="with-aside">
 
-```bash
-build/bin/bitcoin-cli -regtest createwallet hello
-```
-now if we see the number of threads again:
+All of it came from schema files and `pstree`, without tracing anything. Everything from here on is checking the prediction against reality.
 
-```bash
-vinicius@archlinux ~> ps -T -p $(pidof bitcoin-node) -o tid,comm
-    TID COMMAND
-  25846 bitcoin-node
-  25847 b-scheduler
-  25849 b-capnp-loop
-  25932 b-http.00
-  25933 b-http.01
-  25934 b-http.02
-  25935 b-http.03
-  25936 b-http.04
-  25937 b-http.05
-  25938 b-http.06
-  25939 b-http.07
-  25940 b-http.08
-  25941 b-http.09
-  25942 b-http.10
-  25943 b-http.11
-  25944 b-http.12
-  25945 b-http.13
-  25946 b-http.14
-  25947 b-http.15
-  25948 b-http
-  25949 b-scriptch.00
-  25950 b-scriptch.01
-  25951 b-scriptch.02
-  25952 b-scriptch.03
-  25953 b-scriptch.04
-  25954 b-scriptch.05
-  25955 b-scriptch.06
-  25956 b-scriptch.07
-  25957 b-scriptch.08
-  25958 b-scriptch.09
-  25959 b-scriptch.10
-  25960 b-scriptch.11
-  25961 b-scriptch.12
-  25962 b-scriptch.13
-  25963 b-scriptch.14
-  25964 bitcoin-node
-  25965 b-prevout.00
-  25966 b-prevout.01
-  25967 b-prevout.02
-  25968 b-prevout.03
-  25969 b-prevout.04
-  25970 b-prevout.05
-  25971 b-prevout.06
-  25972 b-prevout.07
-  25974 b-mapport
-  25975 b-torcontrol
-  25976 b-net
-  25978 b-addcon
-  25979 b-opencon
-  25980 b-msghand
-  26409 b-capnp-loop # this is new! Also crop the majority of these since they arent new
-```
+<aside class="side">
+  <p><strong>Spoiler:</strong> the prediction holds, but not as simple and straightfoward as the list suggests. The wire is much more interesting, and faster.</p>
+</aside>
 
-```bash
-vinicius@archlinux ~> ps -T -p $(pidof bitcoin-wallet) -o tid,comm
-    TID COMMAND
-  25848 bitcoin-wallet
-  25922 bitcoin-wallet
-  25981 b-schedqueue
-  26024 bitcoin-wallet # this is new!
-```
+</div>
+
+That takes two more posts. In the [next one](https://viniciuscestari.dev/posts/bitcoin-core-ipc-event-loop) we put `strace` on both processes and follow the machinery underneath these four steps: which file descriptor each side ends up holding, and which thread actually writes the bytes. In the [one after that](https://viniciuscestari.dev/posts/bitcoin-core-ipc-on-the-wire) we decode the bytes themselves and find out how a capability is spelled on the wire, and why those four steps do not cost four round trips and is cheaper than it looks.

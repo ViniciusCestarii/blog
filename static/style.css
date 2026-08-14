@@ -319,6 +319,75 @@ details.toc a:hover {
   color: var(--accent);
 }
 
+nav.series {
+  font-family: var(--font-text);
+  font-size: 0.9375rem;
+  border-left: 3px solid var(--rule);
+  padding: 0.5rem 1rem;
+  margin: 2rem 0;
+}
+
+nav.series p {
+  margin: 0.25rem 0;
+  color: var(--muted);
+}
+
+nav.series ol {
+  list-style: none;
+  position: relative;
+  margin: 0.5rem 0 0.15rem;
+  padding-left: 20px;
+}
+
+nav.series ol::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 15px;
+  bottom: 15px;
+  width: 2px;
+  background: var(--rule);
+}
+
+nav.series li {
+  position: relative;
+  padding: 0.15rem 0;
+  color: var(--muted);
+}
+
+nav.series li::before {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  left: -19px;
+  top: 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--muted) 45%, var(--bg));
+  background: var(--bg);
+}
+
+nav.series li[aria-current="page"] {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+nav.series li[aria-current="page"]::before {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+nav.series a {
+  text-decoration: none;
+  color: var(--fg);
+}
+
+nav.series a:hover {
+  color: var(--accent);
+}
+
 footer.site {
   margin-top: 4rem;
   padding-top: 1rem;
