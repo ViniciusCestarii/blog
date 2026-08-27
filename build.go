@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"os"
@@ -28,6 +31,9 @@ type Post struct {
 	Slug     string
 	Title    string
 	Date     string
+	Cover    string
+	CoverW   int
+	CoverH   int
 	Body     template.HTML
 	TOC      template.HTML
 	Released bool
@@ -45,6 +51,10 @@ const postTmpl = `<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.Title}} - Vinicius Cestari</title>
+{{- if .Cover}}
+  <meta property="og:image" content="` + siteURL + `{{.Cover}}">
+  <meta name="twitter:card" content="summary_large_image">
+{{- end}}
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/syntax.css">
 </head>
@@ -65,6 +75,9 @@ const postTmpl = `<!doctype html>
         <h1>{{.Title}}</h1>
         <time datetime="{{.Date}}">{{.Date}}</time>
       </header>
+{{- if .Cover}}
+      <img class="cover" src="{{.Cover}}" alt="" width="{{.CoverW}}" height="{{.CoverH}}">
+{{- end}}
 
 {{.TOC}}
 {{.Body}}
@@ -135,8 +148,15 @@ const indexTmpl = `<!doctype html>
     <ul class="posts">
 {{- range .}}
       <li>
-        <a href="posts/{{.Slug}}">{{.Title}}</a>
-        <time datetime="{{.Date}}">{{.Date}}</time>
+        <a href="posts/{{.Slug}}">
+          <span class="post-head">
+            <span>{{.Title}}</span>
+            <time datetime="{{.Date}}">{{.Date}}</time>
+          </span>
+{{- if .Cover}}
+          <img class="thumb" src="{{.Cover}}" alt="" width="{{.CoverW}}" height="{{.CoverH}}" loading="lazy">
+{{- end}}
+        </a>
       </li>
 {{- end}}
     </ul>
@@ -271,7 +291,56 @@ func loadPost(path string, md goldmark.Markdown) (Post, error) {
 	if err != nil {
 		return Post{}, fmt.Errorf("released: %w", err)
 	}
-	return Post{Slug: slug, Title: meta["title"], Date: meta["date"], Body: body, TOC: toc, Released: released}, nil
+	cover, w, h, err := findCover(slug, meta["cover"])
+	if err != nil {
+		return Post{}, fmt.Errorf("cover: %w", err)
+	}
+	return Post{
+		Slug: slug, Title: meta["title"], Date: meta["date"],
+		Cover: cover, CoverW: w, CoverH: h,
+		Body: body, TOC: toc, Released: released,
+	}, nil
+}
+
+// findCover resolves a post's cover image. An explicit `cover:` frontmatter
+// value is a path under static/; otherwise we look for static/images/covers/<slug>.*.
+// Returns an empty path when the post has no cover.
+func findCover(slug, declared string) (string, int, int, error) {
+	var path string
+	if declared != "" {
+		path = filepath.Join("static", strings.TrimPrefix(declared, "/"))
+		if _, err := os.Stat(path); err != nil {
+			return "", 0, 0, err
+		}
+	} else {
+		matches, err := filepath.Glob(filepath.Join("static", "images", "covers", slug+".*"))
+		if err != nil {
+			return "", 0, 0, err
+		}
+		if len(matches) == 0 {
+			return "", 0, 0, nil
+		}
+		if len(matches) > 1 {
+			return "", 0, 0, fmt.Errorf("ambiguous, %d candidates: %v", len(matches), matches)
+		}
+		path = matches[0]
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return "", 0, 0, fmt.Errorf("%s: %w", path, err)
+	}
+
+	rel, err := filepath.Rel("static", path)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	return "/" + filepath.ToSlash(rel), cfg.Width, cfg.Height, nil
 }
 
 func parseBool(v string, def bool) (bool, error) {

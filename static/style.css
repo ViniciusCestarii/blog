@@ -153,20 +153,38 @@ ul.posts {
 }
 
 ul.posts li {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.4rem 0;
+  padding: 0.4rem 0 0.85rem;
   border-bottom: 1px dotted var(--rule);
 }
 
 ul.posts li a {
-  flex: 1;
+  display: block;
   text-decoration: none;
 }
 
 ul.posts li a:hover {
   color: var(--accent);
+}
+
+.post-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.thumb {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 0.6rem;
+  border: 1px solid var(--rule);
+}
+
+img.cover {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule);
 }
 
 ul.posts li time {
