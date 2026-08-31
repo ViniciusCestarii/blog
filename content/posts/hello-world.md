@@ -13,7 +13,7 @@ The thing I keep coming back to, in Bitcoin and in life, is that the tech is not
 2. Write markdown. Drop in raw HTML when markdown can't say it.
 3. `go run build.go`.
 
-That is the whole pipeline. Good enough is the goal.
+That is the whole pipeline. Good enough is the goal. The source lives at [github.com/ViniciusCestarii/blog](https://github.com/ViniciusCestarii/blog).
 
 ## Code looks like this
 
